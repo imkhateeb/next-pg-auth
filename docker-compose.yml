@@ -1,17 +1,55 @@
 version: "3.8"
+
 services:
   postgres:
     image: postgres:15
     container_name: my_postgres
     restart: always
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_USER: myuser
       POSTGRES_PASSWORD: mypassword
       POSTGRES_DB: mydatabase
+    ports:
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./db-backups:/backups # Auto-backup directory
+    networks:
+      - pg_network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: my_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: adminpassword
+    ports:
+      - "8080:80" # Access PGAdmin at http://localhost:8080
+    depends_on:
+      - postgres
+    networks:
+      - pg_network
+
+  backup:
+    image: postgres:15
+    container_name: db_backup
+    restart: always
+    depends_on:
+      - postgres
+    volumes:
+      - ./db-backups:/backups
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        "while true; do pg_dump -U myuser -h postgres -d mydatabase > /backups/db_backup.sql; sleep 86400; done",
+      ]
+    networks:
+      - pg_network
 
 volumes:
   pgdata:
+
+networks:
+  pg_network:
